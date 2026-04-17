@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard Financeiro · Sol Nascente II</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css"/>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css"/>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f0f4f9;--surf:#ffffff;--surf2:#f1f5fb;--bdr:#dde3ed;
+  --txt:#0f172a;--muted:#64748b;
+  --accent:#2563eb;--blue:#0ea5e9;--orange:#ea580c;
+  --green:#16a34a;--red:#dc2626;--yellow:#d97706;
+  --purple:#7c3aed;--teal:#0891b2;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+
+/* ── HEADER ── */
+header{background:linear-gradient(135deg,#1e3a8a,#2563eb);border-bottom:none;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(37,99,235,.25)}
+header h1{font-size:18px;font-weight:700;color:#fff}header h1 span{color:#fb923c}
+.h-sub{font-size:11px;color:rgba(255,255,255,.75);margin-top:3px}
+.h-badge{font-size:11px;color:#fff;background:rgba(255,255,255,.15);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.3)}
+
+/* ── LAYOUT PRINCIPAL ── */
+html{height:100%}
+body{display:flex;flex-direction:column;height:100%;overflow:hidden}
+header{flex-shrink:0}
+.layout{display:flex;flex:1;overflow:hidden}
+.sidebar{width:224px;min-width:224px;overflow-y:auto;background:#fff;border-right:1px solid var(--bdr);padding:14px 12px;flex-shrink:0;display:flex;flex-direction:column;gap:0;box-shadow:2px 0 8px rgba(37,99,235,.06)}
+.sb-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:#1d4ed8;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #dbeafe}
+.content-area{flex:1;overflow-y:auto;padding:16px 22px}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+/* ── SIDEBAR COUNTER ── */
+.sb-count{font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 8px;margin-bottom:10px;text-align:center;font-weight:600}
+.kpi{background:#fff;border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;cursor:default;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.c-purple::before{background:var(--accent)}.kpi.c-green::before{background:var(--green)}
+.kpi.c-blue::before{background:var(--blue)}.kpi.c-orange::before{background:var(--orange)}
+.kpi.c-red::before{background:var(--red)}.kpi.c-yellow::before{background:var(--yellow)}
+.kpi.c-teal::before{background:var(--teal)}
+.kpi .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.kpi .val{font-size:20px;font-weight:700}
+.kpi .sub{font-size:10px;color:var(--muted);margin-top:4px}
+
+/* ── FILTER BAR (sidebar) ── */
+.filter-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:3px;width:100%}
+.fg label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.fg select{background:#fff;border:1px solid var(--bdr);color:var(--txt);padding:5px 8px;border-radius:6px;font-size:11px;cursor:pointer;width:100%;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.fg select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--bdr);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-clear{background:#fff;color:var(--muted)}.btn-clear:hover{border-color:var(--red);color:var(--red);background:#fff5f5}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-primary:hover{background:#1d4ed8}
+
+/* ── ACTIVE FILTERS ── */
+#activeFilters{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 4px;min-height:0}
+.pill{display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:11px;color:#1d4ed8}
+.pill button{background:none;border:none;color:#1d4ed8;cursor:pointer;font-size:12px;line-height:1;padding:0}
+
+/* ── CHART CARDS ── */
+.cc{background:#fff;border:1px solid var(--bdr);border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.cc h3{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--txt)}
+.cc .csub{font-size:10px;color:var(--muted);margin-bottom:12px}
+.row2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+.row3{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.row1{margin-bottom:14px}
+
+/* ── LEGENDA TABELA ── */
+.leg-wrap{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:11px}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.ld-green{background:rgba(72,187,120,.35)}.ld-yellow{background:rgba(246,224,94,.35)}
+.ld-blue{background:rgba(99,179,237,.35)}.ld-red{background:rgba(252,129,129,.35)}
+
+/* ── DATATABLES OVERRIDES ── */
+.dataTables_wrapper{color:var(--txt)}
+.dataTables_wrapper .dataTables_length select,.dataTables_wrapper .dataTables_filter input{background:#fff;border:1px solid var(--bdr);color:var(--txt);border-radius:6px;padding:4px 8px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.dataTables_wrapper .dataTables_length,.dataTables_wrapper .dataTables_filter,.dataTables_wrapper .dataTables_info,.dataTables_wrapper .dataTables_paginate{font-size:11px;color:var(--muted);padding:6px 0}
+table.dataTable{border-collapse:collapse!important;width:100%!important;font-size:12px}
+table.dataTable thead th{background:#f8fafc!important;color:#475569!important;border-bottom:2px solid #e2e8f0!important;padding:9px 10px!important;font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;cursor:pointer;white-space:nowrap}
+table.dataTable tbody td{padding:8px 10px!important;border-bottom:1px solid #f1f5f9!important;color:var(--txt)!important;white-space:nowrap}
+table.dataTable tbody tr:hover td{background:#eff6ff!important}
+table.dataTable.no-footer{border-bottom:1px solid var(--bdr)!important}
+.dataTables_paginate .paginate_button{color:var(--muted)!important;border:1px solid transparent!important;border-radius:6px!important;padding:4px 9px!important;font-size:11px!important}
+.dataTables_paginate .paginate_button:hover{background:#f1f5f9!important;border-color:var(--bdr)!important;color:var(--txt)!important}
+.dataTables_paginate .paginate_button.current{background:#2563eb!important;color:#fff!important;border-color:#2563eb!important}
+.dt-buttons .dt-button{background:#fff!important;border:1px solid var(--bdr)!important;color:var(--muted)!important;border-radius:6px!important;font-size:11px!important;padding:5px 12px!important;margin-right:4px;box-shadow:0 1px 2px rgba(0,0,0,.04)!important}
+.dt-buttons .dt-button:hover{border-color:#16a34a!important;color:#16a34a!important;background:#f0fdf4!important}
+
+/* ── ROW COLORS ── */
+tr.r-frac td{background:rgba(220,38,38,.06)!important}
+tr.r-exc td{background:rgba(37,99,235,.06)!important}
+tr.r-alto td{background:rgba(234,88,12,.06)!important}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.b-pago{background:#dcfce7;color:#15803d}.b-pendente{background:#fef9c3;color:#92400e}
+.b-atrasado{background:#fee2e2;color:#b91c1c}.b-sindica{background:#dbeafe;color:#1d4ed8}
+.b-conselho{background:#ede9fe;color:#6d28d9}.b-assembleia{background:#ffedd5;color:#c2410c}
+.b-sim{background:#fee2e2;color:#b91c1c}.b-nao{background:#dcfce7;color:#15803d}
+.b-frac{background:#fee2e2;color:#b91c1c}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-bg.open{display:flex}
+.modal-box{background:#fff;border:1px solid var(--bdr);border-radius:16px;width:min(680px,96vw);max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(37,99,235,.15)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #f1f5f9;background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:15px 15px 0 0}
+.modal-hdr h3{font-size:14px;font-weight:700;color:#fff}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;line-height:1;padding:0 4px}
+.modal-close:hover{color:#fff}
+.modal-body{padding:20px}
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m-field{background:#f8fafc;border:1px solid #f1f5f9;border-radius:8px;padding:10px 14px}
+.m-field .m-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:600}
+.m-field .m-val{font-size:13px;font-weight:500;color:var(--txt)}
+.m-field.full{grid-column:1/-1}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1024px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
+@media(max-width:700px){.sidebar{width:180px;min-width:180px}.content-area{padding:10px 12px}}
+</style>
+</head>
+<body>
+
+<!-- ── TELA DE LOGIN ── -->
+<div id="loginOverlay" style="
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#1e3a8a,#2563eb);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Segoe UI',system-ui,sans-serif;">
+  <div style="background:#fff;border-radius:20px;padding:40px 48px;width:min(400px,92vw);
+              box-shadow:0 24px 60px rgba(0,0,0,.3);text-align:center;">
+    <div style="font-size:32px;margin-bottom:8px">🏢</div>
+    <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:4px">Sol Nascente II</h2>
+    <p style="font-size:12px;color:#64748b;margin-bottom:28px">Dashboard Financeiro · Acesso Restrito</p>
+    <input id="loginInput" type="password" placeholder="Digite a senha"
+      style="width:100%;padding:11px 16px;border:1px solid #dde3ed;border-radius:10px;
+             font-size:14px;outline:none;margin-bottom:10px;color:#0f172a;"
+      onkeydown="if(event.key==='Enter')checkLogin()"/>
+    <div id="loginErr" style="font-size:11px;color:#dc2626;min-height:16px;margin-bottom:10px"></div>
+    <button onclick="checkLogin()" style="
+      width:100%;padding:11px;background:#2563eb;color:#fff;border:none;
+      border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+      Entrar
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const HASH = '83a48b8e96d508ab19bd3f74914f94bc5ad5a7aa3d40ab59b8dbcabc4615b599';
+  if(sessionStorage.getItem('snAuth')==='1'){
+    document.getElementById('loginOverlay').style.display='none';
+  }
+  window.checkLogin = async function(){
+    const val = document.getElementById('loginInput').value;
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
+    const hex = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(hex===HASH){
+      sessionStorage.setItem('snAuth','1');
+      document.getElementById('loginOverlay').style.display='none';
+    } else {
+      document.getElementById('loginErr').textContent='Senha incorreta. Tente novamente.';
+      document.getElementById('loginInput').value='';
+      document.getElementById('loginInput').focus();
+    }
+  };
+})();
+</script>
+
+<header>
+  <div>
+    <h1>Dashboard Financeiro · <span>Sol Nascente II</span></h1>
+    <div class="h-sub">078A — Gestão de Despesas e Governança Condominial</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="h-badge" id="hBadge">Nov/2024 → Jan/2026</div>
+  </div>
+</header>
+
+<div class="layout">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sb-title">Filtros</div>
+  <div class="sb-count" id="sbCount">— registros</div>
+  <div class="filter-bar">
+    <div class="fg"><label>Ano</label><select id="fAno"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Mês</label><select id="fMes"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Grupo</label><select id="fGrupo"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Categoria</label><select id="fCat"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Situação</label><select id="fSit"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Forma Pgto</label><select id="fForma"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Autorização</label><select id="fAlcada"><option value="">Todos</option></select></div>
+    <div class="fg"><label>Exceção Alçada</label><select id="fExc"><option value="">Todos</option><option value="true">Sim</option><option value="false">Não</option></select></div>
+    <div class="fg"><label>Fornecedor</label><select id="fForn"><option value="">Todos</option></select></div>
+  </div>
+  <div id="activeFilters"></div>
+  <button class="btn btn-clear" style="width:100%;margin-top:6px" onclick="clearAllFilters()">✕ Limpar Filtros</button>
+</aside>
+
+<!-- ── CONTEÚDO ── -->
+<div class="content-area">
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- GRÁFICOS PRINCIPAIS -->
+  <div class="row2">
+    <div class="cc">
+      <h3>Evolução Temporal</h3>
+      <div class="csub">Total mensal · clique em um mês para filtrar</div>
+      <div id="gTimeSeries" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Distribuição por Categoria</h3>
+      <div class="csub">Clique em uma fatia para filtrar</div>
+      <div id="gDonut" style="height:280px"></div>
+    </div>
+  </div>
+
+  <!-- EVOLUÇÃO POR GRUPO + TOP FORNECEDORES -->
+  <div class="row2">
+    <div class="cc">
+      <h3>Evolução por Grupo</h3>
+      <div class="csub">Despesas mensais empilhadas por grupo · clique em um mês para filtrar</div>
+      <div id="gStackedGrupo" style="height:300px"></div>
+    </div>
+    <div class="cc">
+      <h3>Top Fornecedores</h3>
+      <div class="csub">Clique em uma barra para filtrar</div>
+      <div id="gBarForn" style="height:300px"></div>
+    </div>
+  </div>
+
+  <!-- MAPA DE CALOR -->
+  <div class="cc row1">
+    <h3>Mapa de Calor · Categoria × Mês</h3>
+    <div class="csub">Intensidade de gastos por categoria e período · clique em uma célula para filtrar</div>
+    <div id="gHeatmap" style="height:380px"></div>
+  </div>
+
+  <!-- TABELA -->
+  <div class="cc">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <h3>Lançamentos</h3>
+        <div class="csub" style="margin-bottom:0">Clique em uma linha para ver detalhes</div>
+      </div>
+      <span id="tCount" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+    <div class="leg-wrap">
+      <div class="leg"><div class="leg-dot ld-green"></div>Dentro da alçada</div>
+      <div class="leg"><div class="leg-dot ld-yellow"></div>Valor alto (>R$8k)</div>
+      <div class="leg"><div class="leg-dot ld-blue"></div>Exceção de alçada</div>
+      <div class="leg"><div class="leg-dot ld-red"></div>Indício de fracionamento</div>
+    </div>
+    <table id="tLanc" class="display" style="width:100%">
+      <thead><tr>
+        <th>#</th><th>Data</th><th>Fornecedor</th><th>Categoria</th><th>Grupo</th>
+        <th>Valor</th><th>Forma Pgto</th><th>Situação</th><th>Autorização</th><th>Exceção</th><th>Status</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div><!-- /content-area -->
+</div><!-- /layout -->
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3>Detalhamento do Lançamento</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// CONSTANTES
+// ════════════════════════════════════════════════════
+const ALCADA_SINDICA   = 2000;
+const ALCADA_CONSELHO  = 8000;
+const RECEITA_MENSAL_EST = 37500; // estimativa: 78 unidades × R$480/mês
+
+const MESES_SEQ = [
+  {mes:11,ano:2024},{mes:12,ano:2024},
+  {mes:1,ano:2025},{mes:2,ano:2025},{mes:3,ano:2025},{mes:4,ano:2025},
+  {mes:5,ano:2025},{mes:6,ano:2025},{mes:7,ano:2025},{mes:8,ano:2025},
+  {mes:9,ano:2025},{mes:10,ano:2025},{mes:11,ano:2025},{mes:12,ano:2025},
+  {mes:1,ano:2026}
+];
+const MLBL = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const PALETA = ['#2563eb','#ea580c','#16a34a','#d97706','#dc2626','#0891b2','#7c3aed','#db2777','#0d9488','#65a30d','#9333ea','#c2410c'];
+
+const PLY_BASE = {
+  paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
+  font:{color:'#0f172a', family:"'Segoe UI',system-ui,sans-serif", size:11},
+  colorway: PALETA
+};
+const PLY_XAXIS = {gridcolor:'#e2e8f040', zerolinecolor:'#e2e8f0', tickfont:{color:'#64748b',size:10}, linecolor:'#e2e8f0'};
+const PLY_YAXIS = {gridcolor:'#e2e8f080', zerolinecolor:'#e2e8f0', tickfont:{color:'#64748b',size:10}, linecolor:'#e2e8f0'};
+
+// ════════════════════════════════════════════════════
+// DEFINIÇÃO DOS FORNECEDORES RECORRENTES
+// ════════════════════════════════════════════════════
+const FORNEC_DEF = [
+  { nome:'SERVIS ELETRÔNICA DEFENSE LTDA', grupo:'Segurança', cat:'Portaria Remota', sub:'Monitoramento 24h',
+    cod:'3.1.1.01', forma:'Boleto', alcada_tipo:'Conselho', dia:5, resp:'Síndica',
+    vals:[5872.74,5872.74,5872.74,5872.70,0,5872.74,5872.74,5872.74,5872.74,6277.98,6277.98,6277.98,6277.98,6277.98,6277.95],
+    sits:['Pago','Pago','Pago','Pago','','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago'] },
+
+  { nome:'AMAZONAS DIST. DE ENERGIA S/A', grupo:'Utilities', cat:'Energia', sub:'Energia Elétrica',
+    cod:'3.3.1.01', forma:'Débito Automático', alcada_tipo:'Síndica', dia:15, resp:'Síndica',
+    vals:[1574.22,1638.84,1229.15,1641.67,1651.17,1522.40,1773.29,2078.73,1782.46,1858.04,2195.12,2135.91,1888.57,1686.70,1578.57],
+    sits:Array(15).fill('Pago') },
+
+  { nome:'MAURICIO DA SILVA VIANA', grupo:'Pessoal', cat:'Salários', sub:'Funcionário CLT',
+    cod:'3.2.1.01', forma:'Pix', alcada_tipo:'Síndica', dia:5, resp:'Síndica',
+    vals:[2139.25,2172.00,2439.21,3200,2266.33,2145.83,2270.33,2205.83,2322.33,2791.79,2468.29,1642.14,2884.92,889.71,2184.64],
+    sits:Array(15).fill('Pago') },
+
+  { nome:'RAIMUNDA SILEUDE ROSA DE ARAUJO', grupo:'Pessoal', cat:'Salários', sub:'Funcionária CLT',
+    cod:'3.2.1.02', forma:'Pix', alcada_tipo:'Síndica', dia:5, resp:'Síndica',
+    vals:[2135,1826.50,1993.19,2800,2124.37,2203.87,2128.37,2263.87,1980.37,2249.83,2526.33,2114.01,2749.71,1273.13,2256.51],
+    sits:Array(15).fill('Pago') },
+
+  { nome:'REGINA MARQUES PEREIRA', grupo:'Pessoal', cat:'Ajuda de Custo Síndico', sub:'Ajuda de Custo',
+    cod:'3.2.3.01', forma:'Boleto', alcada_tipo:'Conselho', dia:2, resp:'Conselho',
+    vals:[0,2449.75,2500,4481.75,2445.75,2445.75,2543.58,2445.75,2445.75,0,0,2500,3036,1000,3036],
+    sits:['','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','','','Pago','Pago','Pago','Pago'] },
+
+  { nome:'JOSÉ ANTONIO RIBEIRO DA SILVA', grupo:'Serviços', cat:'Serviço de Jardim', sub:'Manutenção Jardim',
+    cod:'3.1.3.01', forma:'Pix', alcada_tipo:'Conselho', dia:10, resp:'Síndica',
+    vals:[0,1200,0,2300,2400,4150,1700,1900,14850,2700,0,1500,2600,0,0],
+    sits:['','Pago','','Pago','Pago','Pago','Pago','Pago','Pago','Pago','','Pago','Pago','',''] },
+
+  { nome:'MARIETE DAMASCENO', grupo:'Serviços', cat:'Serv. Manutenção e Conservação', sub:'Manutenção Predial',
+    cod:'3.1.2.01', forma:'Pix', alcada_tipo:'Conselho', dia:20, resp:'Síndica',
+    vals:[0,0,0,0,0,0,0,0,0,6300,8500,6700,3250,4200,2600],
+    sits:['','','','','','','','','','Pago','Pago','Pago','Pago','Pago','Pago'] },
+
+  { nome:'57.283.081 FLAVIO MENDES SILVA', grupo:'Serviços', cat:'Serviço Elétrico', sub:'Instalações Elétricas',
+    cod:'3.1.4.01', forma:'Pix', alcada_tipo:'Conselho', dia:15, resp:'Síndica',
+    vals:[0,0,0,0,0,0,0,0,0,1100,2900,2450,4200,2400,900],
+    sits:['','','','','','','','','','Pago','Pago','Pago','Pago','Pago','Pago'] },
+
+  { nome:'MINISTERIO DA PREVIDENCIA SOCIAL', grupo:'Pessoal', cat:'INSS', sub:'Encargos INSS',
+    cod:'3.2.2.01', forma:'DCTFWeb', alcada_tipo:'Síndica', dia:20, resp:'Síndica',
+    vals:[0,847,890,1450,820,810,830,840,860,880,870,850,890,860,820],
+    sits:['','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago','Pago'] },
+
+  { nome:'INTERFACE LIMPEZA E CONSERVAÇÃO', grupo:'Serviços', cat:'Conservação e Limpeza', sub:'Limpeza Predial',
+    cod:'3.1.5.01', forma:'Boleto', alcada_tipo:'Conselho', dia:10, resp:'Síndica',
+    vals:[0,0,0,0,0,5000,0,0,0,0,0,5000,0,0,0],
+    sits:['','','','','','Pago','','','','','','Pago','','',''] }
+];
+
+// Registros extras (pagamentos pontuais e casos especiais)
+const EXTRAS = [
+  // Material Manut.
+  {m:1,a:2025,f:'CONSTRUMIX MATERIAIS LTDA',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.01',v:2850,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:4,a:2025,f:'CONSTRUMIX MATERIAIS LTDA',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.01',v:1980,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:7,a:2025,f:'CONSTRUMIX MATERIAIS LTDA',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.01',v:3200,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:10,a:2025,f:'CONSTRUMIX MATERIAIS LTDA',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.01',v:2508.87,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  // Pintura
+  {m:3,a:2025,f:'PINTURAS AMAZONAS LTDA',g:'Material',c:'Material de Pintura',s:'Tinta e Insumos',cod:'3.4.2.01',v:4500,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:5,a:2025,f:'PINTURAS AMAZONAS LTDA',g:'Material',c:'Material de Pintura',s:'Tinta e Insumos',cod:'3.4.2.01',v:5470.80,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:1,a:2026,f:'PINTURAS AMAZONAS LTDA',g:'Material',c:'Material de Pintura',s:'Tinta e Insumos',cod:'3.4.2.01',v:4999.80,fp:'Boleto',sit:'Pendente',at:'Conselho',exc:false},
+  // Vale-Alimentação
+  {m:1,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:2,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:3,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:4,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:5,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:6,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:7,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:8,a:2025,f:'TICKET SERV. DO BRASIL',g:'Pessoal',c:'Vale-Alimentação',s:'Benefícios',cod:'3.2.4.01',v:1200,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  // Consultoria Adm.
+  {m:12,a:2024,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1500,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:1,a:2025,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1750,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:3,a:2025,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1750,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:6,a:2025,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1750,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:9,a:2025,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1750,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  {m:12,a:2025,f:'ADMIN COND. ASSESSORIA LTDA',g:'Administração',c:'Consultoria Adm. Condominial',s:'Gestão Condominial',cod:'3.5.1.01',v:1750,fp:'Boleto',sit:'Pago',at:'Síndica',exc:false},
+  // Manut. Máquinas
+  {m:2,a:2025,f:'ELEVADORES THYSSENKRUPP',g:'Serviços',c:'Manut. Máquinas e Equipamentos',s:'Elevadores',cod:'3.1.6.01',v:3800,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:5,a:2025,f:'ELEVADORES THYSSENKRUPP',g:'Serviços',c:'Manut. Máquinas e Equipamentos',s:'Elevadores',cod:'3.1.6.01',v:4200,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:8,a:2025,f:'ELEVADORES THYSSENKRUPP',g:'Serviços',c:'Manut. Máquinas e Equipamentos',s:'Elevadores',cod:'3.1.6.01',v:3976.60,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:11,a:2025,f:'ELEVADORES THYSSENKRUPP',g:'Serviços',c:'Manut. Máquinas e Equipamentos',s:'Elevadores',cod:'3.1.6.01',v:3000,fp:'Boleto',sit:'Pendente',at:'Conselho',exc:false},
+  // Manutenção de Bens
+  {m:3,a:2025,f:'HIDRA SERVICE MANAUS',g:'Serviços',c:'Manutenção de Bens',s:'Bombas e Hidráulica',cod:'3.1.7.01',v:4500,fp:'Pix',sit:'Pago',at:'Conselho',exc:false},
+  {m:7,a:2025,f:'HIDRA SERVICE MANAUS',g:'Serviços',c:'Manutenção de Bens',s:'Bombas e Hidráulica',cod:'3.1.7.01',v:5009,fp:'Pix',sit:'Pago',at:'Conselho',exc:false},
+  {m:1,a:2026,f:'HIDRA SERVICE MANAUS',g:'Serviços',c:'Manutenção de Bens',s:'Bombas e Hidráulica',cod:'3.1.7.01',v:3500,fp:'Pix',sit:'Atrasado',at:'Conselho',exc:false},
+  // FGTS
+  {m:1,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:380,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  {m:2,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:390,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  {m:3,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:385,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  {m:4,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:395,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  {m:5,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:388,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  {m:6,a:2025,f:'CAIXA ECONOMICA FEDERAL',g:'Pessoal',c:'FGTS',s:'Encargos FGTS',cod:'3.2.2.02',v:392,fp:'Trans. Bancária',sit:'Pago',at:'Síndica',exc:false},
+  // ⚠️ EXCEÇÃO DE ALÇADA (valor alto, autorização insuficiente)
+  {m:9,a:2025,f:'CONSTRUTORA SILVA & LIMA',g:'Serviços',c:'Serv. Manutenção e Conservação',s:'Reforma',cod:'3.1.2.02',v:12000,fp:'Trans. Bancária',sit:'Pago',at:'Conselho',exc:true},
+  {m:11,a:2025,f:'CONSTRUTORA SILVA & LIMA',g:'Serviços',c:'Serv. Manutenção e Conservação',s:'Reforma',cod:'3.1.2.02',v:9500,fp:'Trans. Bancária',sit:'Atrasado',at:'Conselho',exc:true},
+  // ⚠️ FRACIONAMENTO (mesmo fornecedor, mesmo mês, valores individuais baixos mas somam muito)
+  {m:2,a:2025,f:'MATERIAIS PREDIAIS AM',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.02',v:3900,fp:'Pix',sit:'Pago',at:'Conselho',exc:false},
+  {m:2,a:2025,f:'MATERIAIS PREDIAIS AM',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.02',v:3950,fp:'Pix',sit:'Pago',at:'Conselho',exc:false},
+  {m:2,a:2025,f:'MATERIAIS PREDIAIS AM',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.02',v:2200,fp:'Pix',sit:'Pago',at:'Síndica',exc:true},
+  // mais fracionamento
+  {m:10,a:2025,f:'SEGURANÇA FORTE LTDA',g:'Segurança',c:'Portaria Remota',s:'Equip. Segurança',cod:'3.1.1.02',v:4500,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  {m:10,a:2025,f:'SEGURANÇA FORTE LTDA',g:'Segurança',c:'Portaria Remota',s:'Equip. Segurança',cod:'3.1.1.02',v:4200,fp:'Boleto',sit:'Pago',at:'Conselho',exc:false},
+  // Pendentes/Atrasados
+  // ⚠️ INSS Jan/2026: guia complementar (diferença de competência) — FORNEC_DEF já tem R$820 Pago
+  {m:1,a:2026,f:'MINISTERIO DA PREVIDENCIA SOCIAL',g:'Pessoal',c:'INSS',s:'Encargos INSS · Complemento',cod:'3.2.2.01',v:900,fp:'DCTFWeb',sit:'Pendente',at:'Síndica',exc:false},
+  {m:12,a:2025,f:'CONSTRUMIX MATERIAIS LTDA',g:'Material',c:'Material Manut. e Conservação',s:'Material Predial',cod:'3.4.1.01',v:1850,fp:'Boleto',sit:'Atrasado',at:'Síndica',exc:false},
+];
+
+// ════════════════════════════════════════════════════
+// GERAÇÃO DOS DADOS
+// ════════════════════════════════════════════════════
+function buildData() {
+  const recs = [];
+  let id = 1;
+
+  function fmtData(ano,mes,dia){ return `${ano}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`; }
+  function mkDesc(cat,forn,mes,ano){ return `${cat} · ${forn.split(' ')[0]} ${MLBL[mes]}/${String(ano).slice(2)}`; }
+  function calcExcecao(v, at){
+    if(v > ALCADA_CONSELHO && at !== 'Assembleia') return true;
+    if(v > ALCADA_SINDICA  && at === 'Síndica') return true;
+    return false;
+  }
+
+  FORNEC_DEF.forEach(sup => {
+    MESES_SEQ.forEach((mObj,idx) => {
+      const v = sup.vals[idx];
+      const sit = sup.sits[idx];
+      if(!v || !sit) return;
+      recs.push({
+        id, data: fmtData(mObj.ano,mObj.mes,sup.dia), mes:mObj.mes, ano:mObj.ano,
+        codigo_conta:sup.cod, grupo_conta:sup.grupo, categoria_conta:sup.cat,
+        subcategoria_conta:sup.sub, conta_contabil:sup.cat,
+        descricao:mkDesc(sup.cat,sup.nome,mObj.mes,mObj.ano),
+        fornecedor:sup.nome, valor:v, forma_pagamento:sup.forma,
+        situacao:sit, centro_custo:sup.grupo, responsavel:sup.resp,
+        excecao_alcada:calcExcecao(v,sup.alcada_tipo), tipo_autorizacao:sup.alcada_tipo,
+        fracionamento:false
+      });
+      id++;
+    });
+  });
+
+  EXTRAS.forEach(r => {
+    recs.push({
+      id, data: fmtData(r.a,r.m,12), mes:r.m, ano:r.a,
+      codigo_conta:r.cod, grupo_conta:r.g, categoria_conta:r.c,
+      subcategoria_conta:r.s, conta_contabil:r.c,
+      descricao:mkDesc(r.c,r.f,r.m,r.a),
+      fornecedor:r.f, valor:r.v, forma_pagamento:r.fp,
+      situacao:r.sit, centro_custo:r.g, responsavel:'Síndica',
+      excecao_alcada:r.exc || false, tipo_autorizacao:r.at,
+      fracionamento:false
+    });
+    id++;
+  });
+
+  // Detectar fracionamento
+  const grp = {};
+  recs.forEach(r => {
+    const k = `${r.fornecedor}|${r.mes}|${r.ano}`;
+    if(!grp[k]) grp[k]=[];
+    grp[k].push(r);
+  });
+  Object.values(grp).forEach(g => {
+    if(g.length < 2) return;
+    const total = g.reduce((s,r) => s+r.valor, 0);
+    const maxInd = Math.max(...g.map(r=>r.valor));
+    if(maxInd < ALCADA_CONSELHO && total >= ALCADA_CONSELHO)
+      g.forEach(r => r.fracionamento = true);
+  });
+
+  return recs.sort((a,b) => a.data > b.data ? -1 : 1);
+}
+
+const DATA = buildData();
+
+// ════════════════════════════════════════════════════
+// ESTADO DOS FILTROS
+// ════════════════════════════════════════════════════
+const F = { ano:'', mes:'', grupo:'', cat:'', sit:'', forma:'', alcada:'', exc:'', forn:'', _chart:{} };
+
+function getFiltered(){
+  return DATA.filter(r =>
+    (!F.ano    || r.ano == F.ano) &&
+    (!F.mes    || r.mes == F.mes) &&
+    (!F.grupo  || r.grupo_conta === F.grupo) &&
+    (!F.cat    || r.categoria_conta === F.cat) &&
+    (!F.sit    || r.situacao === F.sit) &&
+    (!F.forma  || r.forma_pagamento === F.forma) &&
+    (!F.alcada || r.tipo_autorizacao === F.alcada) &&
+    (!F.exc    || String(r.excecao_alcada) === F.exc) &&
+    (!F.forn   || r.fornecedor === F.forn) &&
+    // filtros de gráfico
+    (!F._chart.categoria || r.categoria_conta === F._chart.categoria) &&
+    (!F._chart.fornecedor || r.fornecedor === F._chart.fornecedor) &&
+    (!F._chart.mes_ano || `${r.mes}/${r.ano}` === F._chart.mes_ano)
+  );
+}
+
+function clearAllFilters(){
+  ['fAno','fMes','fGrupo','fCat','fSit','fForma','fAlcada','fExc','fForn'].forEach(id => document.getElementById(id).value='');
+  F.ano=F.mes=F.grupo=F.cat=F.sit=F.forma=F.alcada=F.exc=F.forn='';
+  F._chart={};
+  renderAll();
+}
+
+// ════════════════════════════════════════════════════
+// PÍLULAS DE FILTROS ATIVOS
+// ════════════════════════════════════════════════════
+function renderPills(){
+  const box = document.getElementById('activeFilters');
+  box.innerHTML='';
+  const items = [
+    [F.ano,   `Ano: ${F.ano}`,   ()=>{F.ano='';document.getElementById('fAno').value='';renderAll();}],
+    [F.mes,   `Mês: ${MLBL[F.mes]||F.mes}`, ()=>{F.mes='';document.getElementById('fMes').value='';renderAll();}],
+    [F.grupo, `Grupo: ${F.grupo}`, ()=>{F.grupo='';document.getElementById('fGrupo').value='';renderAll();}],
+    [F.cat,   `Cat: ${F.cat}`,   ()=>{F.cat='';document.getElementById('fCat').value='';renderAll();}],
+    [F.sit,   `Sit: ${F.sit}`,   ()=>{F.sit='';document.getElementById('fSit').value='';renderAll();}],
+    [F.forma, `Pgto: ${F.forma}`,()=>{F.forma='';document.getElementById('fForma').value='';renderAll();}],
+    [F.alcada,`Aut: ${F.alcada}`,()=>{F.alcada='';document.getElementById('fAlcada').value='';renderAll();}],
+    [F.exc,   `Exceção: ${F.exc==='true'?'Sim':'Não'}`, ()=>{F.exc='';document.getElementById('fExc').value='';renderAll();}],
+    [F.forn,  `Forn: ${F.forn&&F.forn.split(' ')[0]}`, ()=>{F.forn='';document.getElementById('fForn').value='';renderAll();}],
+    [F._chart.categoria, `📊 ${F._chart.categoria}`, ()=>{delete F._chart.categoria;renderAll();}],
+    [F._chart.fornecedor,`📊 ${F._chart.fornecedor}`,()=>{delete F._chart.fornecedor;renderAll();}],
+    [F._chart.mes_ano,   `📊 ${F._chart.mes_ano}`,   ()=>{delete F._chart.mes_ano;renderAll();}],
+  ];
+  items.forEach(([val,lbl,fn]) => {
+    if(!val) return;
+    const p = document.createElement('span');
+    p.className='pill';
+    p.innerHTML=`${lbl} <button onclick="void(0)">✕</button>`;
+    p.querySelector('button').addEventListener('click',fn);
+    box.appendChild(p);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// KPIs
+// ════════════════════════════════════════════════════
+function R(v){ return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+
+function renderKPIs(data){
+  const total    = data.reduce((s,r)=>s+r.valor,0);
+  const pago     = data.filter(r=>r.situacao==='Pago').reduce((s,r)=>s+r.valor,0);
+  const nPend    = data.filter(r=>r.situacao==='Pendente').length;
+  const nAtras   = data.filter(r=>r.situacao==='Atrasado').length;
+  const emAberto = data.filter(r=>r.situacao==='Pendente'||r.situacao==='Atrasado').reduce((s,r)=>s+r.valor,0);
+  const nExc     = data.filter(r=>r.excecao_alcada).length;
+  const nFrac    = data.filter(r=>r.fracionamento).length;
+  const ticket   = data.length>0 ? total/data.length : 0;
+  const compPct  = total>0 ? (data.filter(r=>!r.excecao_alcada&&!r.fracionamento).reduce((s,r)=>s+r.valor,0)/total*100) : 100;
+
+  const kpis = [
+    {cor:'c-purple', lbl:'Total Despesas',     val:R(total),      sub:`${data.length} lançamentos`},
+    {cor:'c-green',  lbl:'Total Pago',          val:R(pago),       sub:`${(pago/total*100||0).toFixed(1)}% do total`},
+    {cor:'c-orange', lbl:'Em Aberto',            val:R(emAberto),   sub:`${nPend} pendente(s) · ${nAtras} atrasado(s)`},
+    {cor:'c-red',    lbl:'Exceções de Alçada',   val:nExc,          sub:'autorizações insuficientes'},
+    {cor:'c-yellow', lbl:'Fracionamentos',        val:nFrac,         sub:'pagamentos suspeitos'},
+    {cor:'c-teal',   lbl:'Ticket Médio',          val:R(ticket),     sub:`${compPct.toFixed(0)}% em conformidade`},
+  ];
+  const g = document.getElementById('kpiGrid');
+  g.innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.cor}">
+      <div class="lbl">${k.lbl}</div>
+      <div class="val">${k.val}</div>
+      <div class="sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// GRÁFICO 1: SÉRIE TEMPORAL
+// ════════════════════════════════════════════════════
+function renderTimeSeries(data){
+  const monthly = {};
+  MESES_SEQ.forEach(m => { monthly[`${m.mes}/${m.ano}`]=0; });
+  data.forEach(r => {
+    const k=`${r.mes}/${r.ano}`;
+    if(monthly[k]!==undefined) monthly[k]+=r.valor;
+  });
+  const labels = Object.keys(monthly);
+  const vals   = Object.values(monthly);
+  const media  = vals.reduce((a,b)=>a+b,0)/vals.filter(v=>v>0).length||1;
+  const colors = vals.map(v=> v>media*1.15?'rgba(234,88,12,0.75)':v<media*0.85&&v>0?'rgba(22,163,74,0.75)':'rgba(37,99,235,0.75)');
+  const bcolors= vals.map(v=> v>media*1.15?'#ea580c':v<media*0.85&&v>0?'#16a34a':'#2563eb');
+
+  // regressão linear
+  const n=vals.length, sx=n*(n-1)/2, sy=vals.reduce((a,b)=>a+b,0);
+  const sxy=vals.reduce((a,v,i)=>a+i*v,0), sx2=vals.reduce((a,_,i)=>a+i*i,0);
+  const b2=(n*sxy-sx*sy)/(n*sx2-sx*sx||1), a2=(sy-b2*sx)/n;
+  const trend=vals.map((_,i)=>Math.max(0,a2+b2*i));
+
+  const traces = [
+    { type:'bar', name:'Despesas mensais', x:labels, y:vals,
+      marker:{color:colors, line:{color:bcolors,width:1.5}},
+      hovertemplate:'<b>%{x}</b><br>%{y:,.0f}<extra></extra>' },
+    { type:'scatter', mode:'lines', name:'Média', x:labels, y:vals.map(()=>media),
+      line:{color:'#d97706',dash:'dot',width:1.5}, hoverinfo:'skip' },
+    { type:'scatter', mode:'lines', name:'Tendência', x:labels, y:trend,
+      line:{color:'#ea580c',width:2}, hoverinfo:'skip' }
+  ];
+  const layout = { ...PLY_BASE,
+    separators:',.',
+    margin:{t:10,r:10,b:60,l:80},
+    legend:{orientation:'h',y:1.12,font:{size:10}},
+    xaxis:{...PLY_XAXIS,tickangle:-35},
+    yaxis:{...PLY_YAXIS, tickformat:',.0f', tickprefix:'R$\u00a0'},
+    bargap:0.25
+  };
+  Plotly.react('gTimeSeries', traces, layout, {responsive:true,displayModeBar:false});
+  document.getElementById('gTimeSeries').on('plotly_click', e => {
+    const lbl = e.points[0].x;
+    if(!lbl) return;
+    const [mes,ano] = lbl.split('/');
+    if(F._chart.mes_ano === lbl){ delete F._chart.mes_ano; }
+    else { F._chart.mes_ano = lbl; }
+    renderAll();
+  });
+}
+
+// ════════════════════════════════════════════════════
+// GRÁFICO 2: DONUT CATEGORIAS
+// ════════════════════════════════════════════════════
+function renderDonut(data){
+  const catTotals = {};
+  data.forEach(r => { catTotals[r.categoria_conta]=(catTotals[r.categoria_conta]||0)+r.valor; });
+  const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const labels=sorted.map(e=>e[0]), vals=sorted.map(e=>e[1]);
+  const total=vals.reduce((a,b)=>a+b,0);
+
+  const trace = [{
+    type:'pie', hole:0.55, labels, values:vals,
+    marker:{colors:PALETA, line:{color:'#1a1d27',width:2}},
+    textinfo:'none',
+    hovertemplate:'<b>%{label}</b><br>R$ %{value:,.0f}<br>%{percent}<extra></extra>',
+    pull: labels.map(l => l === F._chart.categoria ? 0.08 : 0)
+  }];
+  const layout = { ...PLY_BASE,
+    separators:',.',
+    margin:{t:10,r:10,b:120,l:10},
+    showlegend:true,
+    legend:{orientation:'h',x:0.5,xanchor:'center',y:-0.18,font:{size:9},bgcolor:'transparent'},
+    annotations:[{text:`<b>R$ ${(total/1000).toLocaleString('pt-BR',{minimumFractionDigits:0})}k</b>`,showarrow:false,font:{size:12,color:'#0f172a'},x:0.5,y:0.5,xref:'paper',yref:'paper'}]
+  };
+  Plotly.react('gDonut', trace, layout, {responsive:true,displayModeBar:false});
+  document.getElementById('gDonut').on('plotly_click', e => {
+    const cat = e.points[0].label;
+    F._chart.categoria = F._chart.categoria===cat ? undefined : cat;
+    renderAll();
+  });
+}
+
+// ════════════════════════════════════════════════════
+// GRÁFICO 3: BAR FORNECEDORES
+// ════════════════════════════════════════════════════
+function renderBarForn(data){
+  const fornTotals = {};
+  data.forEach(r => { fornTotals[r.fornecedor]=(fornTotals[r.fornecedor]||0)+r.valor; });
+  const sorted = Object.entries(fornTotals).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const labels = sorted.map(e => e[0].split(' ').slice(0,3).join(' '));
+  const vals   = sorted.map(e => e[1]);
+  const fullLabels = sorted.map(e=>e[0]);
+
+  const colors = fullLabels.map((l,i) => l===F._chart.fornecedor ? PALETA[i%PALETA.length] : PALETA[i%PALETA.length]+'99');
+
+  const trace = [{ type:'bar', orientation:'h', x:vals, y:labels,
+    marker:{color:colors}, text:vals.map(v=>`R$ ${(v/1000).toLocaleString('pt-BR',{minimumFractionDigits:0})}k`),
+    textposition:'outside', textfont:{size:9,color:'#8892b0'},
+    hovertemplate:'<b>%{y}</b><br>R$ %{x:,.0f}<extra></extra>'
+  }];
+  const layout = { ...PLY_BASE,
+    separators:',.',
+    margin:{t:10,r:80,b:10,l:160},
+    xaxis:{...PLY_XAXIS, tickformat:',.0f', tickprefix:'R$\u00a0'},
+    yaxis:{...PLY_YAXIS, autorange:'reversed', tickfont:{size:9}},
+  };
+  Plotly.react('gBarForn', trace, layout, {responsive:true,displayModeBar:false});
+  document.getElementById('gBarForn').on('plotly_click', e => {
+    const idx = e.points[0].pointIndex;
+    const forn = fullLabels[idx];
+    F._chart.fornecedor = F._chart.fornecedor===forn ? undefined : forn;
+    renderAll();
+  });
+}
+
+// ════════════════════════════════════════════════════
+// GRÁFICO 4: BARRAS EMPILHADAS POR GRUPO
+// ════════════════════════════════════════════════════
+function renderStackedGrupo(data){
+  const grupos = [...new Set(DATA.map(r=>r.grupo_conta))].sort();
+  const labels = MESES_SEQ.map(m=>`${m.mes}/${m.ano}`);
+
+  const traces = grupos.map((g,i) => {
+    const vals = labels.map(lbl => {
+      const [mes,ano] = lbl.split('/');
+      return data.filter(r=>r.grupo_conta===g && r.mes==mes && r.ano==ano)
+                 .reduce((s,r)=>s+r.valor,0);
+    });
+    return {
+      type:'bar', name:g, x:labels, y:vals,
+      marker:{color:PALETA[i%PALETA.length]+'cc'},
+      hovertemplate:`<b>${g}</b><br>%{x}<br>R$ %{y:,.0f}<extra></extra>`
+    };
+  });
+
+  const layout = { ...PLY_BASE,
+    separators:',.',
+    barmode:'stack',
+    margin:{t:10,r:10,b:60,l:80},
+    legend:{orientation:'h',y:1.12,font:{size:9}},
+    xaxis:{...PLY_XAXIS, tickangle:-35},
+    yaxis:{...PLY_YAXIS, tickformat:',.0f', tickprefix:'R$\u00a0'},
+    bargap:0.2
+  };
+  Plotly.react('gStackedGrupo', traces, layout, {responsive:true,displayModeBar:false});
+  document.getElementById('gStackedGrupo').on('plotly_click', e => {
+    const lbl = e.points[0].x;
+    if(!lbl) return;
+    if(F._chart.mes_ano === lbl){ delete F._chart.mes_ano; }
+    else { F._chart.mes_ano = lbl; }
+    renderAll();
+  });
+}
+
+// ════════════════════════════════════════════════════
+// GRÁFICO 5: MAPA DE CALOR CATEGORIA × MÊS
+// ════════════════════════════════════════════════════
+function renderHeatmap(data){
+  const cats   = [...new Set(DATA.map(r=>r.categoria_conta))].sort();
+  const labels = MESES_SEQ.map(m=>`${m.mes}/${m.ano}`);
+
+  const z = cats.map(cat =>
+    labels.map(lbl => {
+      const [mes,ano] = lbl.split('/');
+      return data.filter(r=>r.categoria_conta===cat && r.mes==mes && r.ano==ano)
+                 .reduce((s,r)=>s+r.valor,0);
+    })
+  );
+
+  // Destaca célula selecionada
+  const selCat = F._chart.categoria;
+  const selMes = F._chart.mes_ano;
+
+  const trace = [{
+    type:'heatmap', z, x:labels, y:cats,
+    colorscale:[[0,'#f8fafc'],[0.01,'#dbeafe'],[0.25,'#93c5fd'],[0.6,'#2563eb'],[1,'#ea580c']],
+    hovertemplate:'<b>%{y}</b><br>%{x}<br>R$ %{z:,.0f}<extra></extra>',
+    showscale:true,
+    colorbar:{tickfont:{color:'#8892b0',size:9},thickness:12,len:0.8,tickformat:',.0f'}
+  }];
+
+  // Anotação na célula selecionada
+  const annotations = [];
+  if(selCat && selMes){
+    const xi = labels.indexOf(selMes);
+    const yi = cats.indexOf(selCat);
+    if(xi>=0 && yi>=0) annotations.push({
+      x:selMes, y:selCat, text:'◉', showarrow:false,
+      font:{color:'#ea580c',size:14}, xref:'x', yref:'y'
+    });
+  }
+
+  const layout = { ...PLY_BASE,
+    separators:',.',
+    margin:{t:10,r:60,b:60,l:200},
+    xaxis:{...PLY_XAXIS, tickangle:-35},
+    yaxis:{...PLY_YAXIS, tickfont:{size:9}, automargin:true},
+    annotations
+  };
+  Plotly.react('gHeatmap', trace, layout, {responsive:true,displayModeBar:false});
+  document.getElementById('gHeatmap').on('plotly_click', e => {
+    const cat    = e.points[0].y;
+    const mes_an = e.points[0].x;
+    if(F._chart.categoria===cat && F._chart.mes_ano===mes_an){
+      delete F._chart.categoria; delete F._chart.mes_ano;
+    } else {
+      F._chart.categoria = cat;
+      F._chart.mes_ano   = mes_an;
+    }
+    renderAll();
+  });
+}
+
+// ════════════════════════════════════════════════════
+// DATATABLES
+// ════════════════════════════════════════════════════
+let dtInstance = null;
+
+function fmtDate(d){ const [y,m,dia]=d.split('-'); return `${dia}/${m}/${y}`; }
+
+function sitBadge(s){
+  const cls = {Pago:'b-pago',Pendente:'b-pendente',Atrasado:'b-atrasado'}[s]||'b-pendente';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+function autBadge(a){
+  const cls = {Síndica:'b-sindica',Conselho:'b-conselho',Assembleia:'b-assembleia'}[a]||'b-conselho';
+  return `<span class="badge ${cls}">${a}</span>`;
+}
+function rowStatus(r){
+  if(r.fracionamento) return '<span class="badge b-frac">⚠ Frac.</span>';
+  if(r.excecao_alcada) return '<span class="badge b-sim">⚠ Exceção</span>';
+  if(r.valor>ALCADA_CONSELHO) return '<span class="badge b-pendente">↑ Alto</span>';
+  return '<span class="badge b-nao">✓ OK</span>';
+}
+
+function renderTable(data){
+  const rows = data.map(r => [
+    r.id,
+    fmtDate(r.data),
+    `<span title="${r.fornecedor}">${r.fornecedor.length>30?r.fornecedor.slice(0,28)+'…':r.fornecedor}</span>`,
+    `<span title="${r.categoria_conta}">${r.categoria_conta.length>22?r.categoria_conta.slice(0,20)+'…':r.categoria_conta}</span>`,
+    r.grupo_conta,
+    `<span style="font-weight:600">R$ ${r.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`,
+    r.forma_pagamento,
+    sitBadge(r.situacao),
+    autBadge(r.tipo_autorizacao),
+    `<span class="badge ${r.excecao_alcada?'b-sim':'b-nao'}">${r.excecao_alcada?'Sim':'Não'}</span>`,
+    rowStatus(r)
+  ]);
+
+  document.getElementById('tCount').textContent = `${data.length} registros`;
+
+  if(dtInstance){ dtInstance.destroy(); dtInstance=null; }
+
+  dtInstance = $('#tLanc').DataTable({
+    data: rows,
+    columns: [
+      {title:'#',width:'40px'},{title:'Data',width:'90px'},{title:'Fornecedor'},
+      {title:'Categoria'},{title:'Grupo',width:'100px'},{title:'Valor',width:'110px'},
+      {title:'Forma Pgto',width:'110px'},{title:'Situação',width:'80px'},
+      {title:'Autorização',width:'90px'},{title:'Exceção',width:'70px'},{title:'Status',width:'90px'}
+    ],
+    order:[[1,'desc']],
+    pageLength:15,
+    lengthMenu:[10,15,25,50,100],
+    dom: 'Bfrtip',
+    buttons:[
+      {extend:'excelHtml5',text:'⬇ Excel',title:'Lançamentos – Sol Nascente II'},
+      {extend:'csvHtml5',  text:'⬇ CSV',  title:'Lançamentos – Sol Nascente II'}
+    ],
+    language:{
+      search:'Buscar:', lengthMenu:'Exibir _MENU_ registros',
+      info:'Mostrando _START_ a _END_ de _TOTAL_',
+      paginate:{previous:'‹',next:'›'},
+      emptyTable:'Nenhum lançamento encontrado'
+    },
+    createdRow: function(row, rowData, idx){
+      const r = data[idx];
+      if(!r) return;
+      if(r.fracionamento)       $(row).addClass('r-frac');
+      else if(r.excecao_alcada) $(row).addClass('r-exc');
+      else if(r.valor > ALCADA_CONSELHO) $(row).addClass('r-alto');
+    }
+  });
+
+  // Clique na linha → modal
+  $('#tLanc tbody').off('click').on('click','tr', function(){
+    const rowData = dtInstance.row(this).data();
+    if(!rowData) return;
+    const id = rowData[0];
+    const rec = data.find(r=>r.id===id);
+    if(rec) openModal(rec);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════
+function openModal(r){
+  const body = document.getElementById('modalBody');
+  const fmtV = v => `R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const flags = [];
+  if(r.fracionamento)  flags.push(`<span class="badge b-frac">⚠ Indício de Fracionamento</span>`);
+  if(r.excecao_alcada) flags.push(`<span class="badge b-sim">⚠ Exceção de Alçada</span>`);
+  if(r.situacao==='Atrasado') flags.push(`<span class="badge b-atrasado">⚠ Pagamento Atrasado</span>`);
+  if(r.valor>ALCADA_CONSELHO&&!r.excecao_alcada) flags.push(`<span class="badge b-pendente">↑ Valor Alto — requer Assembleia</span>`);
+
+  body.innerHTML = `
+    ${flags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${flags.join('')}</div>`:''}
+    <div class="m-grid">
+      <div class="m-field full"><div class="m-lbl">Descrição</div><div class="m-val">${r.descricao}</div></div>
+      <div class="m-field"><div class="m-lbl">Data</div><div class="m-val">${fmtDate(r.data)}</div></div>
+      <div class="m-field"><div class="m-lbl">Situação</div><div class="m-val">${sitBadge(r.situacao)}</div></div>
+      <div class="m-field full"><div class="m-lbl">Fornecedor</div><div class="m-val">${r.fornecedor}</div></div>
+      <div class="m-field"><div class="m-lbl">Valor</div><div class="m-val" style="font-size:18px;color:#48bb78">${fmtV(r.valor)}</div></div>
+      <div class="m-field"><div class="m-lbl">Forma de Pagamento</div><div class="m-val">${r.forma_pagamento}</div></div>
+      <div class="m-field"><div class="m-lbl">Grupo</div><div class="m-val">${r.grupo_conta}</div></div>
+      <div class="m-field"><div class="m-lbl">Categoria</div><div class="m-val">${r.categoria_conta}</div></div>
+      <div class="m-field"><div class="m-lbl">Subcategoria</div><div class="m-val">${r.subcategoria_conta}</div></div>
+      <div class="m-field"><div class="m-lbl">Complemento</div><div class="m-val">${r.descricao||'—'}</div></div>
+      <div class="m-field"><div class="m-lbl">Cód. Conta</div><div class="m-val" style="font-family:monospace">${r.codigo_conta}</div></div>
+      <div class="m-field"><div class="m-lbl">Centro de Custo</div><div class="m-val">${r.centro_custo}</div></div>
+      <div class="m-field"><div class="m-lbl">Responsável</div><div class="m-val">${r.responsavel}</div></div>
+      <div class="m-field"><div class="m-lbl">Tipo Autorização</div><div class="m-val">${autBadge(r.tipo_autorizacao)}</div></div>
+      <div class="m-field"><div class="m-lbl">Exceção de Alçada</div><div class="m-val"><span class="badge ${r.excecao_alcada?'b-sim':'b-nao'}">${r.excecao_alcada?'Sim':'Não'}</span></div></div>
+      <div class="m-field full"><div class="m-lbl">Conta Contábil</div><div class="m-val">${r.conta_contabil}</div></div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end">
+      <button class="btn btn-clear" onclick="closeModal()">Fechar</button>
+    </div>`;
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ════════════════════════════════════════════════════
+// FILTROS — POPULAR SELECTS
+// ════════════════════════════════════════════════════
+function populateFilters(){
+  function fill(id,values){
+    const sel = document.getElementById(id);
+    values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+  }
+  const anos   = [...new Set(DATA.map(r=>r.ano))].sort();
+  const meses  = [...new Set(DATA.map(r=>r.mes))].sort((a,b)=>a-b);
+  const grupos = [...new Set(DATA.map(r=>r.grupo_conta))].sort();
+  const cats   = [...new Set(DATA.map(r=>r.categoria_conta))].sort();
+  const sits   = [...new Set(DATA.map(r=>r.situacao))].sort();
+  const formas = [...new Set(DATA.map(r=>r.forma_pagamento))].sort();
+  const alcadas= [...new Set(DATA.map(r=>r.tipo_autorizacao))].sort();
+  const forns  = [...new Set(DATA.map(r=>r.fornecedor))].sort();
+  fill('fAno',  anos);
+  fill('fMes',  meses.map(m=>({value:m,label:`${MLBL[m]}`})).map(x=>x.value));
+  fill('fGrupo',grupos);
+  fill('fCat',  cats);
+  fill('fSit',  sits);
+  fill('fForma',formas);
+  fill('fAlcada',alcadas);
+  fill('fForn', forns);
+  // fix mes labels
+  const fMes = document.getElementById('fMes');
+  [...fMes.options].forEach(o => { if(o.value) o.textContent = `${MLBL[o.value]} (${o.value})`; });
+}
+
+function bindFilters(){
+  const map = {fAno:'ano',fMes:'mes',fGrupo:'grupo',fCat:'cat',fSit:'sit',fForma:'forma',fAlcada:'alcada',fExc:'exc',fForn:'forn'};
+  Object.entries(map).forEach(([id,key]) => {
+    document.getElementById(id).addEventListener('change', e => { F[key]=e.target.value; renderAll(); });
+  });
+}
+
+// ════════════════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════════════════
+function renderAll(){
+  const data = getFiltered();
+  const sbEl = document.getElementById('sbCount');
+  if(sbEl) sbEl.textContent = `${data.length} de ${DATA.length} registros`;
+  renderPills();
+  renderKPIs(data);
+  renderTimeSeries(data);
+  renderDonut(data);
+  renderStackedGrupo(data);
+  renderBarForn(data);
+  renderHeatmap(data);
+  renderTable(data);
+}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+$(document).ready(function(){
+  try {
+    populateFilters();
+    bindFilters();
+    renderAll();
+  } catch(e) {
+    console.error('Dashboard init error:', e);
+    document.querySelector('.content-area').insertAdjacentHTML('afterbegin',
+      `<div style="background:#3a1a1a;border:1px solid #fc8181;border-radius:8px;padding:16px;margin-bottom:16px;color:#fc8181;font-size:12px">
+        <b>Erro ao inicializar:</b> ${e.message}<br>
+        <small>Verifique a conexão com a internet (as bibliotecas carregam de CDN) e recarregue a página.</small>
+      </div>`
+    );
+  }
+});
+</script>
+</body>
+</html>
